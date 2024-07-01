@@ -1,0 +1,90 @@
+<mat-table
+  [dataSource]="dataSource"
+  class="mat-elevation-z8"
+  multiTemplateDataRows
+>
+  <ng-container matColumnDef="expand">
+    <mat-header-cell *matHeaderCellDef></mat-header-cell>
+
+    <mat-cell *matCellDef="let element">
+      <button mat-icon-button>
+        <mat-icon>{{
+          expandedElement === element
+            ? "keyboard_arrow_up"
+            : "keyboard_arrow_down"
+        }}</mat-icon>
+      </button>
+    </mat-cell>
+  </ng-container>
+
+  @for (column of columns; track column) {
+    <ng-container [matColumnDef]="column.columnDef">
+      <mat-header-cell *matHeaderCellDef>
+        {{ column.header }}
+      </mat-header-cell>
+
+      <mat-cell *matCellDef="let row">
+        {{ column.cell(row) }}
+
+        @if (column.badge) {
+          <span class="badge">{{ column.badge(row) }}</span>
+        }
+      </mat-cell>
+    </ng-container>
+  }
+
+  <ng-container matColumnDef="closePosition">
+    <mat-header-cell *matHeaderCellDef>&nbsp;</mat-header-cell>
+
+    <mat-cell *matCellDef="let element">
+      <button mat-icon-button>
+        <mat-icon>close</mat-icon>
+      </button>
+    </mat-cell>
+  </ng-container>
+
+  <!-- expanded -->
+  <ng-container matColumnDef="expandedDetail">
+    <mat-cell
+      *matCellDef="let element"
+      [attr.colspan]="displayedColumns.length"
+      [@detailExpand]="element === expandedElement ? 'expanded' : 'collapsed'"
+    >
+      <mat-table [dataSource]="element.items">
+        <ng-container matColumnDef="expand">
+          <mat-cell *matCellDef="let element"></mat-cell>
+        </ng-container>
+
+        @for (column of columns; track column) {
+          <ng-container [matColumnDef]="column.columnDef">
+            <mat-cell *matCellDef="let row">
+              {{ column.cell(row) }}
+            </mat-cell>
+          </ng-container>
+        }
+
+        <ng-container matColumnDef="closePosition">
+          <mat-cell *matCellDef="let element">
+            <button mat-icon-button>
+              <mat-icon>close</mat-icon>
+            </button>
+          </mat-cell>
+        </ng-container>
+
+        <mat-row *matRowDef="let row; columns: displayedColumns"></mat-row>
+      </mat-table>
+    </mat-cell>
+  </ng-container>
+
+  <mat-header-row *matHeaderRowDef="displayedColumns"></mat-header-row>
+  <mat-row
+    *matRowDef="let row; columns: displayedColumns"
+    class="group-row"
+    [class.expanded]="expandedElement === row"
+    (click)="expandRow(row, $event)"
+  ></mat-row>
+  <mat-row
+    *matRowDef="let row; columns: ['expandedDetail']"
+    [style.min-height]="'unset'"
+  ></mat-row>
+</mat-table>

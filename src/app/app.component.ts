@@ -1,10 +1,10 @@
 import { Component } from '@angular/core';
-import { TransactionTableComponent } from './transaction-table/transaction-table.component';
+import { OrdersComponent } from './orders/orders.component';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [TransactionTableComponent],
+  imports: [OrdersComponent],
   templateUrl: './app.component.html',
   styleUrl: './app.component.scss',
 })
