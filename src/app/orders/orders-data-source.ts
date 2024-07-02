@@ -158,13 +158,18 @@ export class OrdersDataSource extends DataSource<OrderGroup> {
     group: OrderGroup,
     order: OrderWithProfit,
     hasOrderBeenRemoved = false,
-  ) {
+  ): void {
     let size = order.size;
     let swap = order.swap;
 
     if (hasOrderBeenRemoved) {
       size = -size;
       swap = -swap;
+    }
+
+    if (group.profit && order.profit) {
+      group.profit =
+        (group.profit * group.size + order.profit * size) / (group.size + size);
     }
 
     group.openPrice =
