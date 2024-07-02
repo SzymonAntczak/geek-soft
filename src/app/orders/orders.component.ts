@@ -1,8 +1,7 @@
-import { Component, inject } from '@angular/core';
+import { Component } from '@angular/core';
 import { MatTableModule } from '@angular/material/table';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { DataSource } from '@angular/cdk/collections';
 import {
   animate,
   state,
@@ -10,10 +9,9 @@ import {
   transition,
   trigger,
 } from '@angular/animations';
-import { Observable, map, tap } from 'rxjs';
 import { ApiService } from './api/api.service';
-import { type Order, OrderSide, OrderSymbol } from './api/api.model';
-import type { Column, OrderWithProfit, OrderGroup } from './orders.model';
+import type { Column, OrderGroup } from './orders.model';
+import { OrdersDataSource } from './orders-data-source';
 
 @Component({
   selector: 'app-orders',
@@ -60,7 +58,7 @@ export class OrdersComponent {
     {
       columnDef: 'size',
       header: 'Size',
-      cell: ({ size }) => `${size}`,
+      cell: ({ size }) => `${this._getRoundedValue(size)}`,
     },
     {
       columnDef: 'openTime',
@@ -78,12 +76,13 @@ export class OrdersComponent {
     {
       columnDef: 'swap',
       header: 'Swap',
-      cell: ({ swap }) => `${swap}`,
+      cell: ({ swap }) => `${this._getRoundedValue(swap)}`,
     },
     {
       columnDef: 'profit',
       header: 'Profit',
-      cell: ({ profit }) => `${this._getRoundedValue(profit, 5)}`,
+      cell: ({ profit }) =>
+        profit === null ? '?' : `${this._getRoundedValue(profit, 5)}`,
     },
   ];
 
@@ -93,100 +92,17 @@ export class OrdersComponent {
     'closePosition',
   ];
 
-  expandedElement: OrderGroup | null = null;
+  readonly expandedElements: Record<string, boolean> = {};
 
-  expandRow(element: OrderGroup, event: Event) {
+  expandRow(event: MouseEvent, { symbol }: OrderGroup) {
     event.stopPropagation();
 
-    this.expandedElement = this.expandedElement === element ? null : element;
-    console.log(this.expandedElement);
+    this.expandedElements[symbol] = !this.expandedElements[symbol];
   }
 
   private _getRoundedValue(value: number, numberOfDecimals = 2) {
     const multiplier = Math.pow(10, numberOfDecimals);
 
     return Math.round((value + Number.EPSILON) * multiplier) / multiplier;
-  }
-}
-
-class OrdersDataSource extends DataSource<OrderGroup> {
-  connect() {
-    return this._getOrderGroups().pipe(tap(console.log));
-  }
-
-  disconnect() {
-    console.log('disconnect');
-  }
-
-  private _getOrderGroups(): Observable<OrderGroup[]> {
-    return inject(ApiService)
-      .getOrders()
-      .pipe(
-        map((orders) => {
-          const grouped = orders.reduce(
-            (acc, order) => {
-              if (!acc[order.symbol]) {
-                acc[order.symbol] = {
-                  symbol: order.symbol,
-                  size: 0,
-                  openPrice: 0,
-                  swap: 0,
-                  profit: 0,
-                  items: [],
-                };
-              }
-
-              const group = acc[order.symbol];
-              const item: OrderWithProfit = {
-                ...order,
-                profit: this._getOrderProfit(order),
-              };
-
-              group.openPrice =
-                (group.openPrice * group.size + item.openPrice * item.size) /
-                (group.size + item.size);
-
-              group.profit =
-                (group.profit * group.size + item.profit * item.size) /
-                (group.size + item.size);
-
-              group.size += item.size;
-              group.swap += item.swap;
-
-              group.items.push(item);
-
-              return acc;
-            },
-            {} as Record<OrderSymbol, OrderGroup>,
-          );
-
-          return Object.values(grouped);
-        }),
-      );
-  }
-
-  private _getOrderProfit({
-    symbol,
-    side,
-    closePrice,
-    openPrice,
-  }: Order): number {
-    const exponent = (() => {
-      switch (symbol) {
-        case OrderSymbol.BTCUSD:
-          return 2;
-        case OrderSymbol.ETHUSD:
-          return 3;
-        case OrderSymbol['TTWO.US']:
-          return 1;
-        default:
-          throw new Error(`Unknown symbol: ${symbol}`);
-      }
-    })();
-
-    const multiplier = Math.pow(10, exponent);
-    const sideMultiplier = side === OrderSide.BUY ? 1 : -1;
-
-    return ((closePrice - openPrice) * multiplier * sideMultiplier) / 100;
   }
 }

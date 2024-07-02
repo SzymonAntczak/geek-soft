@@ -1,7 +1,7 @@
 import { Order } from './api/api.model';
 
 export interface OrderWithProfit extends Order {
-  profit: number;
+  profit: number | null;
 }
 
 export interface OrderGroup

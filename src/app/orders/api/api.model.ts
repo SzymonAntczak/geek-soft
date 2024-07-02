@@ -19,3 +19,23 @@ export enum OrderSide {
   BUY = 'BUY',
   SELL = 'SELL',
 }
+
+export type CurrentPricesWS =
+  | {
+      p: '/quotes/subscribed';
+      d: {
+        s: OrderSymbol;
+        b: number;
+        a: number;
+        t: number;
+      }[];
+    }
+  | {
+      p: '/subscribe/addlist';
+      i: number;
+    };
+
+export interface CurrentPricesWSMessage {
+  p: '/subscribe/addlist';
+  d: OrderSymbol[];
+}

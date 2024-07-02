@@ -7,9 +7,9 @@
     <mat-header-cell *matHeaderCellDef></mat-header-cell>
 
     <mat-cell *matCellDef="let element">
-      <button mat-icon-button>
+      <button mat-icon-button (click)="expandRow($event, element)">
         <mat-icon>{{
-          expandedElement === element
+          expandedElements[element.symbol]
             ? "keyboard_arrow_up"
             : "keyboard_arrow_down"
         }}</mat-icon>
@@ -37,7 +37,10 @@
     <mat-header-cell *matHeaderCellDef>&nbsp;</mat-header-cell>
 
     <mat-cell *matCellDef="let element">
-      <button mat-icon-button>
+      <button
+        mat-icon-button
+        (click)="dataSource.closeOrderGroup($event, element)"
+      >
         <mat-icon>close</mat-icon>
       </button>
     </mat-cell>
@@ -48,9 +51,11 @@
     <mat-cell
       *matCellDef="let element"
       [attr.colspan]="displayedColumns.length"
-      [@detailExpand]="element === expandedElement ? 'expanded' : 'collapsed'"
+      [@detailExpand]="
+        expandedElements[element.symbol] ? 'expanded' : 'collapsed'
+      "
     >
-      <mat-table [dataSource]="element.items">
+      <mat-table #expandedTable [dataSource]="element.items">
         <ng-container matColumnDef="expand">
           <mat-cell *matCellDef="let element"></mat-cell>
         </ng-container>
@@ -65,7 +70,10 @@
 
         <ng-container matColumnDef="closePosition">
           <mat-cell *matCellDef="let element">
-            <button mat-icon-button>
+            <button
+              mat-icon-button
+              (click)="dataSource.closeOrder($event, element, expandedTable)"
+            >
               <mat-icon>close</mat-icon>
             </button>
           </mat-cell>
@@ -80,8 +88,8 @@
   <mat-row
     *matRowDef="let row; columns: displayedColumns"
     class="group-row"
-    [class.expanded]="expandedElement === row"
-    (click)="expandRow(row, $event)"
+    [class.expanded]="expandedElements[row.symbol]"
+    (click)="expandRow($event, row)"
   ></mat-row>
   <mat-row
     *matRowDef="let row; columns: ['expandedDetail']"
