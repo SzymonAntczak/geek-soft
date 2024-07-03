@@ -23,13 +23,13 @@
         {{ column.header }}
       </mat-header-cell>
 
-      <mat-cell *matCellDef="let row">
+      <mat-cell *matCellDef="let element" [ngClass]="column.class?.(element)">
         <ng-container
-          *ngTemplateOutlet="cell; context: { $implicit: column.cell(row) }"
+          *ngTemplateOutlet="cell; context: { $implicit: column.cell(element) }"
         ></ng-container>
 
         @if (column.badge) {
-          <span class="badge">{{ column.badge(row) }}</span>
+          <span class="badge">{{ column.badge(element) }}</span>
         }
       </mat-cell>
     </ng-container>
@@ -43,7 +43,7 @@
         mat-icon-button
         (click)="dataSource.closeOrderGroup($event, element)"
       >
-        <mat-icon>close</mat-icon>
+        <mat-icon>playlist_remove</mat-icon>
       </button>
     </mat-cell>
   </ng-container>
@@ -68,11 +68,14 @@
 
         @for (column of columns; track column) {
           <ng-container [matColumnDef]="column.columnDef">
-            <mat-cell *matCellDef="let row">
+            <mat-cell
+              *matCellDef="let element"
+              [ngClass]="column.class?.(element)"
+            >
               <ng-container
                 *ngTemplateOutlet="
                   cell;
-                  context: { $implicit: column.cell(row) }
+                  context: { $implicit: column.cell(element) }
                 "
               ></ng-container>
             </mat-cell>
@@ -97,13 +100,13 @@
 
   <mat-header-row *matHeaderRowDef="displayedColumns"></mat-header-row>
   <mat-row
-    *matRowDef="let row; columns: displayedColumns"
+    *matRowDef="let element; columns: displayedColumns"
     class="group-row"
-    [class.expanded]="expandedElements[row.symbol]"
-    (click)="expandRow($event, row)"
+    [class.expanded]="expandedElements[element.symbol]"
+    (click)="expandRow($event, element)"
   ></mat-row>
   <mat-row
-    *matRowDef="let row; columns: ['expandedDetail']"
+    *matRowDef="let element; columns: ['expandedDetail']"
     [style.min-height]="'unset'"
   ></mat-row>
 </mat-table>

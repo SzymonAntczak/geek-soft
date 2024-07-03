@@ -1,5 +1,66 @@
+@use "@angular/material" as mat;
+
+@include mat.core();
+
+$theme: mat.define-theme(
+  (
+    color: (
+      theme-type: light,
+      primary: mat.$rose-palette,
+    ),
+  )
+);
+
+:root {
+  @include mat.core-theme($theme);
+  @include mat.all-component-bases($theme);
+  @include mat.all-component-typographies($theme);
+  @include mat.all-component-densities($theme);
+  @include mat.progress-spinner-color($theme);
+  @include mat.snack-bar-color($theme);
+  @include mat.button-color($theme);
+
+  --color-background: rgb(233, 237, 241);
+  --color-font: rgb(14, 15, 26);
+  --color-badge-font: rgb(198, 210, 219);
+  --color-table-background: rgb(220, 225, 229);
+  --color-table-background-hover: rgb(201, 209, 216);
+  --color-profit-positive: rgb(60, 193, 149);
+  --color-profit-negative: rgb(249, 76, 76);
+
+  @media (prefers-color-scheme: dark) {
+    --color-background: rgb(42, 56, 71);
+    --color-font: rgb(198, 210, 219);
+    --color-table-background: rgba(14, 15, 26, 0.25);
+    --color-table-background-hover: rgba(53, 71, 89, 0.5);
+  }
+}
+
 body {
   margin: 0;
-  padding: 1rem;
   font-family: Roboto, "Helvetica Neue", sans-serif;
+  background-color: var(--color-background);
+
+  .mat-mdc-icon-button {
+    color: mat.get-theme-color($theme, primary);
+    transition: 0.3s background-color;
+
+    &:hover {
+      background-color: var(--color-background);
+    }
+
+    &:active {
+      background-color: var(--color-table-background-hover);
+    }
+  }
+
+  .badge {
+    background-color: mat.get-theme-color($theme, primary);
+    color: var(--color-badge-font);
+    padding-block: 0.125rem;
+    padding-inline: 0.5rem;
+    border-radius: 100%;
+    font-size: 0.8rem;
+    font-weight: 500;
+  }
 }

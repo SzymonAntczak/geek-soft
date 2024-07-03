@@ -17,4 +17,5 @@ export interface Column {
   header: string;
   cell: (element: OrderGroup | OrderWithProfit) => string;
   badge?: (element: OrderGroup | OrderWithProfit) => string;
+  class?: (element: OrderGroup | OrderWithProfit) => string;
 }

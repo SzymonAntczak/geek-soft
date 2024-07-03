@@ -1,68 +1,105 @@
-:host > mat-table {
-  mat-header-cell,
-  mat-cell {
-    border: none;
+:host {
+  display: block;
+  padding: 1rem;
 
-    .badge {
-      margin-inline-start: 0.5rem;
-      padding-block: 0.25rem;
-      padding-inline: 0.5rem;
-      background: black;
-      border-radius: 100%;
+  > mat-table {
+    background-color: var(--color-table-background);
+
+    mat-header-cell,
+    mat-cell {
+      border: none;
+      color: var(--color-font);
+
+      @media (width <= 1366px) {
+        font-size: 0.8rem;
+      }
+
+      @media (width <= 1112px) {
+        padding-inline: 0.5rem;
+      }
+
+      .badge {
+        margin-inline-start: 0.5rem;
+      }
+
+      &.positive {
+        color: var(--color-profit-positive);
+      }
+
+      &.negative {
+        color: var(--color-profit-negative);
+      }
     }
-  }
 
-  .group-row {
-    transition: background 0.3s;
+    mat-row {
+      transition: background 0.3s;
+    }
 
-    &:not(.expanded) {
+    .group-row {
       &:hover {
-        background: black;
+        background: var(--color-table-background-hover);
         cursor: pointer;
       }
 
       &:active {
-        background: #efefef;
+        background-color: var(--color-background);
       }
     }
-  }
 
-  .mat-column {
-    &-expand,
-    &-closePosition {
-      padding-inline: 0.25rem;
-      max-width: 3rem;
-    }
+    .mat-column {
+      &-expand,
+      &-closePosition {
+        padding-inline: 0.25rem;
+        max-width: 3rem;
+      }
 
-    &-orderId,
-    &-size,
-    &-swap {
-      flex: 2;
-    }
+      &-orderId,
+      &-size,
+      &-swap {
+        flex: 2;
 
-    &-openTime {
-      flex: 3;
-    }
+        @media (width <= 1366px) {
+          flex: 1;
+        }
+      }
 
-    &-openPrice {
-      justify-content: flex-end;
-      text-align: right;
-    }
+      &-openTime {
+        flex: 3;
 
-    &-expandedDetail {
-      padding-inline: 0;
+        @media (width <= 1440px) {
+          flex: 2;
+        }
 
-      mat-table {
-        overflow: hidden;
+        @media (width <= 1112px) {
+          flex: 1;
+        }
+      }
 
-        mat-cell {
-          font-size: 0.8rem;
-          color: rgba(255, 255, 255, 0.6);
+      &-openPrice {
+        justify-content: flex-end;
+        text-align: right;
+      }
 
-          &.mat-column-closePosition mat-icon {
-            font-size: 1rem;
-            inline-size: 1rem;
-            block-size: 1rem;
+      &-expandedDetail {
+        padding-inline: 0;
+
+        mat-table {
+          overflow: hidden;
+
+          mat-row {
+            &:hover {
+              background: var(--color-table-background-hover);
+            }
+
+            mat-cell {
+              font-size: 0.8rem;
+
+              &.mat-column-closePosition mat-icon {
+                font-size: 1rem;
+                inline-size: 1rem;
+                block-size: 1rem;
+              }
+            }
           }
         }
       }
