@@ -1,17 +1,19 @@
 import { DataSource } from '@angular/cdk/collections';
 import { inject } from '@angular/core';
-import { MatTable } from '@angular/material/table';
+import { type MatTable } from '@angular/material/table';
 import { Subject, Subscription, take } from 'rxjs';
-import { OrderGroup, OrderWithProfit } from './orders.model';
+import type { OrderGroup, OrderWithProfit } from './orders.model';
 import { ApiService } from './api/api.service';
-import { Order, OrderSide, OrderSymbol } from './api/api.model';
+import { type Order, OrderSide, OrderSymbol } from './api/api.model';
+import { NotificationService } from '../core/notification.service';
 
 export class OrdersDataSource extends DataSource<OrderGroup> {
   private readonly _apiService = inject(ApiService);
+  private readonly _notificationService = inject(NotificationService);
   private readonly _dataSubject = new Subject<OrderGroup[]>();
+  private readonly _subscription = new Subscription();
 
   private _data?: Record<OrderSymbol, OrderGroup>;
-  private _subscription?: Subscription;
 
   constructor() {
     super();
@@ -23,7 +25,7 @@ export class OrdersDataSource extends DataSource<OrderGroup> {
   }
 
   disconnect() {
-    this._subscription?.unsubscribe();
+    this._subscription.unsubscribe();
   }
 
   closeOrderGroup(event: MouseEvent, group: OrderGroup): void {
@@ -34,13 +36,19 @@ export class OrdersDataSource extends DataSource<OrderGroup> {
     delete this._data[group.symbol];
 
     this._updateDataSubject(this._data);
-    this._subscription?.unsubscribe();
+
+    if (group.items.length >= 1) {
+      this._showNotification(group.items);
+    }
 
     const remainingSymbols = Object.keys(this._data) as OrderSymbol[];
 
-    if (remainingSymbols.length <= 0) return;
+    if (remainingSymbols.length <= 0) {
+      this.disconnect();
+      return;
+    }
 
-    this._startUpdatingProfitValues(remainingSymbols);
+    this._apiService.removeSymbolsFromWatchList([group.symbol]);
   }
 
   closeOrder(
@@ -56,13 +64,16 @@ export class OrdersDataSource extends DataSource<OrderGroup> {
     const index = group.items.findIndex(({ id }) => id === order.id);
 
     group.items.splice(index, 1);
+    this._showNotification([order]);
+
+    if (group.items.length <= 0) {
+      this.closeOrderGroup(event, group);
+      return;
+    }
+
     this._calcOrderGroupValues(group, order, true);
     this._updateDataSubject(this._data);
     tableRef.renderRows();
-
-    if (group.items.length > 0) return;
-
-    this.closeOrderGroup(event, group);
   }
 
   private _setData(): void {
@@ -100,17 +111,18 @@ export class OrdersDataSource extends DataSource<OrderGroup> {
 
         this._updateDataSubject(this._data);
 
-        this._startUpdatingProfitValues(
+        this._apiService.addSymbolsToWatchList(
           Object.keys(this._data) as OrderSymbol[],
         );
+
+        this._startUpdatingProfitValues();
       });
   }
 
-  private _startUpdatingProfitValues(symbols: OrderSymbol[]): void {
-    this._subscription = this._apiService
-      .watchCurrentPrices(symbols)
-      .subscribe((data) => {
-        if (data.p === '/subscribe/addlist' || !this._data) return;
+  private _startUpdatingProfitValues(): void {
+    this._subscription.add(
+      this._apiService.watchCurrentPrices().subscribe((data) => {
+        if (data.p !== '/quotes/subscribed' || !this._data) return;
 
         data.d.forEach(({ s: symbol, b: currentPrice }) => {
           const group = this._data?.[symbol];
@@ -128,7 +140,8 @@ export class OrdersDataSource extends DataSource<OrderGroup> {
         });
 
         this._updateDataSubject(this._data);
-      });
+      }),
+    );
   }
 
   private _getOrderProfit(
@@ -182,5 +195,11 @@ export class OrdersDataSource extends DataSource<OrderGroup> {
 
   private _updateDataSubject(newData: Record<OrderSymbol, OrderGroup>) {
     this._dataSubject.next(Object.values(newData));
+  }
+
+  private _showNotification(items: OrderWithProfit[]) {
+    this._notificationService.showNotification(
+      `Zamknięto zlecenie nr ${items.map(({ id }) => id).join(', ')}`,
+    );
   }
 }

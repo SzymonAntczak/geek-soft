@@ -24,7 +24,9 @@
       </mat-header-cell>
 
       <mat-cell *matCellDef="let row">
-        {{ column.cell(row) }}
+        <ng-container
+          *ngTemplateOutlet="cell; context: { $implicit: column.cell(row) }"
+        ></ng-container>
 
         @if (column.badge) {
           <span class="badge">{{ column.badge(row) }}</span>
@@ -51,11 +53,15 @@
     <mat-cell
       *matCellDef="let element"
       [attr.colspan]="displayedColumns.length"
-      [@detailExpand]="
-        expandedElements[element.symbol] ? 'expanded' : 'collapsed'
-      "
     >
-      <mat-table #expandedTable [dataSource]="element.items">
+      <mat-table
+        #expandedTable
+        [dataSource]="element.items"
+        [style.height]="0"
+        [@detailExpand]="
+          expandedElements[element.symbol] ? 'expanded' : 'collapsed'
+        "
+      >
         <ng-container matColumnDef="expand">
           <mat-cell *matCellDef="let element"></mat-cell>
         </ng-container>
@@ -63,7 +69,12 @@
         @for (column of columns; track column) {
           <ng-container [matColumnDef]="column.columnDef">
             <mat-cell *matCellDef="let row">
-              {{ column.cell(row) }}
+              <ng-container
+                *ngTemplateOutlet="
+                  cell;
+                  context: { $implicit: column.cell(row) }
+                "
+              ></ng-container>
             </mat-cell>
           </ng-container>
         }
@@ -96,3 +107,11 @@
     [style.min-height]="'unset'"
   ></mat-row>
 </mat-table>
+
+<ng-template #cell let-value>
+  @if (value === "?") {
+    <mat-spinner [diameter]="20"></mat-spinner>
+  } @else {
+    {{ value }}
+  }
+</ng-template>

@@ -1,12 +1,12 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { type Observable, map } from 'rxjs';
-import {
-  type CurrentPricesWS,
-  type CurrentPricesWSMessage,
-  type Order,
-} from './api.model';
 import { webSocket } from 'rxjs/webSocket';
+import type {
+  CurrentPricesWS,
+  CurrentPricesWSMessage,
+  Order,
+} from './api.model';
 
 @Injectable()
 export class ApiService {
@@ -23,14 +23,21 @@ export class ApiService {
       .pipe(map(({ data }) => data));
   }
 
-  watchCurrentPrices(
-    symbols: CurrentPricesWSMessage['d'],
-  ): Observable<CurrentPricesWS> {
+  watchCurrentPrices(): Observable<CurrentPricesWS> {
+    return this._currentPricesWS.asObservable() as Observable<CurrentPricesWS>;
+  }
+
+  addSymbolsToWatchList(symbols: CurrentPricesWSMessage['d']): void {
     this._currentPricesWS.next({
       p: '/subscribe/addlist',
       d: symbols,
     });
+  }
 
-    return this._currentPricesWS.asObservable() as Observable<CurrentPricesWS>;
+  removeSymbolsFromWatchList(symbols: CurrentPricesWSMessage['d']): void {
+    this._currentPricesWS.next({
+      p: '/subscribe/removelist',
+      d: symbols,
+    });
   }
 }

@@ -2,6 +2,7 @@ import { Component } from '@angular/core';
 import { MatTableModule } from '@angular/material/table';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import {
   animate,
   state,
@@ -12,11 +13,29 @@ import {
 import { ApiService } from './api/api.service';
 import type { Column, OrderGroup } from './orders.model';
 import { OrdersDataSource } from './orders-data-source';
+import { CommonModule } from '@angular/common';
+
+const dateTimeFormat = new Intl.DateTimeFormat('en-GB', {
+  dateStyle: 'short',
+  timeStyle: 'medium',
+});
+
+function getRoundedValue(value: number, numberOfDecimals = 2): number {
+  const multiplier = Math.pow(10, numberOfDecimals);
+
+  return Math.round((value + Number.EPSILON) * multiplier) / multiplier;
+}
 
 @Component({
   selector: 'app-orders',
   standalone: true,
-  imports: [MatTableModule, MatButtonModule, MatIconModule],
+  imports: [
+    CommonModule,
+    MatTableModule,
+    MatButtonModule,
+    MatIconModule,
+    MatProgressSpinnerModule,
+  ],
   providers: [ApiService],
   templateUrl: './orders.component.html',
   styleUrl: './orders.component.scss',
@@ -32,11 +51,6 @@ import { OrdersDataSource } from './orders-data-source';
   ],
 })
 export class OrdersComponent {
-  private readonly _dateTimeFormat = new Intl.DateTimeFormat('en-GB', {
-    dateStyle: 'short',
-    timeStyle: 'medium',
-  });
-
   readonly dataSource = new OrdersDataSource();
   readonly columns: Column[] = [
     {
@@ -58,31 +72,31 @@ export class OrdersComponent {
     {
       columnDef: 'size',
       header: 'Size',
-      cell: ({ size }) => `${this._getRoundedValue(size)}`,
+      cell: ({ size }) => `${getRoundedValue(size)}`,
     },
     {
       columnDef: 'openTime',
       header: 'Open Time',
       cell: (element) =>
         'openTime' in element
-          ? this._dateTimeFormat.format(element.openTime).replaceAll('/', '.')
+          ? dateTimeFormat.format(element.openTime).replaceAll('/', '.')
           : '',
     },
     {
       columnDef: 'openPrice',
       header: 'Open Price',
-      cell: ({ openPrice }) => `${this._getRoundedValue(openPrice)}`,
+      cell: ({ openPrice }) => `${getRoundedValue(openPrice)}`,
     },
     {
       columnDef: 'swap',
       header: 'Swap',
-      cell: ({ swap }) => `${this._getRoundedValue(swap)}`,
+      cell: ({ swap }) => `${getRoundedValue(swap)}`,
     },
     {
       columnDef: 'profit',
       header: 'Profit',
       cell: ({ profit }) =>
-        profit === null ? '?' : `${this._getRoundedValue(profit, 5)}`,
+        profit === null ? '?' : `${getRoundedValue(profit, 5)}`,
     },
   ];
 
@@ -94,15 +108,9 @@ export class OrdersComponent {
 
   readonly expandedElements: Record<string, boolean> = {};
 
-  expandRow(event: MouseEvent, { symbol }: OrderGroup) {
+  expandRow(event: MouseEvent, { symbol }: OrderGroup): void {
     event.stopPropagation();
 
     this.expandedElements[symbol] = !this.expandedElements[symbol];
-  }
-
-  private _getRoundedValue(value: number, numberOfDecimals = 2) {
-    const multiplier = Math.pow(10, numberOfDecimals);
-
-    return Math.round((value + Number.EPSILON) * multiplier) / multiplier;
   }
 }

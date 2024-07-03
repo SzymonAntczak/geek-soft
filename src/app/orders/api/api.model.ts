@@ -36,6 +36,6 @@ export type CurrentPricesWS =
     };
 
 export interface CurrentPricesWSMessage {
-  p: '/subscribe/addlist';
+  p: '/subscribe/addlist' | '/subscribe/removelist';
   d: OrderSymbol[];
 }
