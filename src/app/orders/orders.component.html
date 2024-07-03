@@ -112,8 +112,12 @@
 </mat-table>
 
 <ng-template #cell let-value>
-  @if (value === "?") {
+  @if (value === "LOADING") {
     <mat-spinner [diameter]="20"></mat-spinner>
+  } @else if (value === "ERROR") {
+    <mat-icon matTooltip="Nie udało się pobrać danych" class="error-icon">
+      warning
+    </mat-icon>
   } @else {
     {{ value }}
   }

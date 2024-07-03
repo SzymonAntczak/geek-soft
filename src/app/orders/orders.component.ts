@@ -14,6 +14,7 @@ import { ApiService } from './api/api.service';
 import type { Column, OrderGroup } from './orders.model';
 import { OrdersDataSource } from './orders-data-source';
 import { CommonModule } from '@angular/common';
+import { MatTooltipModule } from '@angular/material/tooltip';
 
 const dateTimeFormat = new Intl.DateTimeFormat('en-GB', {
   dateStyle: 'short',
@@ -35,6 +36,7 @@ function getRoundedValue(value: number, numberOfDecimals = 2): number {
     MatButtonModule,
     MatIconModule,
     MatProgressSpinnerModule,
+    MatTooltipModule,
   ],
   providers: [ApiService],
   templateUrl: './orders.component.html',
@@ -96,9 +98,9 @@ export class OrdersComponent {
       columnDef: 'profit',
       header: 'Profit',
       cell: ({ profit }) =>
-        profit === null ? '?' : `${getRoundedValue(profit, 5)}`,
+        typeof profit === 'number' ? `${getRoundedValue(profit, 5)}` : profit,
       class: ({ profit }) => {
-        if (!profit || profit === 0) return '';
+        if (typeof profit !== 'number' || profit === 0) return '';
         if (profit > 0) return 'positive';
         return 'negative';
       },

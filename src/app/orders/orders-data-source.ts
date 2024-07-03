@@ -2,7 +2,11 @@ import { DataSource } from '@angular/cdk/collections';
 import { inject } from '@angular/core';
 import { type MatTable } from '@angular/material/table';
 import { Subject, Subscription, take } from 'rxjs';
-import type { OrderGroup, OrderWithProfit } from './orders.model';
+import {
+  OrderProfitState,
+  type OrderGroup,
+  type OrderWithProfit,
+} from './orders.model';
 import { ApiService } from './api/api.service';
 import { type Order, OrderSide, OrderSymbol } from './api/api.model';
 import { NotificationService } from '../core/notification.service';
@@ -80,66 +84,97 @@ export class OrdersDataSource extends DataSource<OrderGroup> {
     this._apiService
       .getOrders()
       .pipe(take(1))
-      .subscribe((orders) => {
-        this._data = orders.reduce(
-          (acc, order) => {
-            if (!acc[order.symbol]) {
-              acc[order.symbol] = {
-                symbol: order.symbol,
-                size: 0,
-                openPrice: 0,
-                swap: 0,
-                profit: null,
-                items: [],
+      .subscribe({
+        next: (orders) => {
+          this._data = orders.reduce(
+            (acc, order) => {
+              if (!acc[order.symbol]) {
+                acc[order.symbol] = {
+                  symbol: order.symbol,
+                  size: 0,
+                  openPrice: 0,
+                  swap: 0,
+                  profit: OrderProfitState.Loading,
+                  items: [],
+                };
+              }
+
+              const group = acc[order.symbol];
+              const item: OrderWithProfit = {
+                ...order,
+                profit: OrderProfitState.Loading,
               };
-            }
 
-            const group = acc[order.symbol];
-            const item: OrderWithProfit = {
-              ...order,
-              profit: null,
-            };
+              this._calcOrderGroupValues(group, item);
 
-            this._calcOrderGroupValues(group, item);
+              group.items.push(item);
 
-            group.items.push(item);
+              return acc;
+            },
+            {} as Record<OrderSymbol, OrderGroup>,
+          );
 
-            return acc;
-          },
-          {} as Record<OrderSymbol, OrderGroup>,
-        );
+          this._updateDataSubject(this._data);
 
-        this._updateDataSubject(this._data);
+          this._apiService.addSymbolsToWatchList(
+            Object.keys(this._data) as OrderSymbol[],
+          );
 
-        this._apiService.addSymbolsToWatchList(
-          Object.keys(this._data) as OrderSymbol[],
-        );
-
-        this._startUpdatingProfitValues();
+          this._startUpdatingProfitValues();
+        },
+        error: () => {
+          this._notificationService.showNotification(
+            'Nie udało się pobrać danych, spróbuj ponownie później.',
+            true,
+          );
+        },
       });
   }
 
   private _startUpdatingProfitValues(): void {
     this._subscription.add(
-      this._apiService.watchCurrentPrices().subscribe((data) => {
-        if (data.p !== '/quotes/subscribed' || !this._data) return;
+      this._apiService.watchCurrentPrices().subscribe({
+        next: (data) => {
+          if (data.p !== '/quotes/subscribed' || !this._data) return;
 
-        data.d.forEach(({ s: symbol, b: currentPrice }) => {
-          const group = this._data?.[symbol];
+          data.d.forEach(({ s: symbol, b: currentPrice }) => {
+            const group = this._data?.[symbol];
 
-          if (!group) return;
+            if (!group) return;
 
-          let groupProfitNominator = 0;
+            let groupProfitNominator = 0;
 
-          group.items.forEach((item) => {
-            item.profit = this._getOrderProfit(item, currentPrice);
-            groupProfitNominator += item.size * item.profit;
+            group.items.forEach((item) => {
+              item.profit = this._getOrderProfit(item, currentPrice);
+              groupProfitNominator += item.size * item.profit;
+            });
+
+            group.profit = groupProfitNominator / group.size;
           });
 
-          group.profit = groupProfitNominator / group.size;
-        });
+          this._updateDataSubject(this._data);
+        },
+        error: () => {
+          this.disconnect();
 
-        this._updateDataSubject(this._data);
+          if (!this._data) return;
+
+          const setProfitError = (item: OrderGroup | OrderWithProfit) => {
+            if (typeof item.profit !== 'number') {
+              item.profit = OrderProfitState.Error;
+            }
+          };
+
+          Object.values(this._data).forEach((group) => {
+            setProfitError(group);
+
+            group.items.forEach((item) => {
+              setProfitError(item);
+            });
+          });
+
+          this._updateDataSubject(this._data);
+        },
       }),
     );
   }
@@ -180,7 +215,7 @@ export class OrdersDataSource extends DataSource<OrderGroup> {
       swap = -swap;
     }
 
-    if (group.profit && order.profit) {
+    if (typeof group.profit === 'number' && typeof order.profit === 'number') {
       group.profit =
         (group.profit * group.size + order.profit * size) / (group.size + size);
     }
@@ -199,7 +234,7 @@ export class OrdersDataSource extends DataSource<OrderGroup> {
 
   private _showNotification(items: OrderWithProfit[]) {
     this._notificationService.showNotification(
-      `Zamknięto zlecenie nr ${items.map(({ id }) => id).join(', ')}`,
+      `Zamknięto zlecenie nr ${items.map(({ id }) => id).join(', ')}.`,
     );
   }
 }
