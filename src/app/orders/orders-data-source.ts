@@ -2,14 +2,58 @@ import { DataSource } from '@angular/cdk/collections';
 import { inject } from '@angular/core';
 import { type MatTable } from '@angular/material/table';
 import { Subject, Subscription, take } from 'rxjs';
-import {
-  OrderProfitState,
-  type OrderGroup,
-  type OrderWithProfit,
-} from './orders.model';
+import { type OrderGroup, type OrderWithProfit } from './orders.model';
 import { ApiService } from './api/api.service';
 import { type Order, OrderSide, OrderSymbol } from './api/api.model';
 import { NotificationService } from '../core/notification.service';
+
+function getOrderProfit(
+  { symbol, side, openPrice, closePrice }: Order,
+  currentPrice?: number,
+): number {
+  const exponent = (() => {
+    switch (symbol) {
+      case OrderSymbol.BTCUSD:
+        return 2;
+      case OrderSymbol.ETHUSD:
+        return 3;
+      case OrderSymbol['TTWO.US']:
+        return 1;
+      default:
+        throw new Error(`Unknown symbol: ${symbol}`);
+    }
+  })();
+
+  const multiplier = Math.pow(10, exponent);
+  const sideMultiplier = side === OrderSide.BUY ? 1 : -1;
+  const latestPrice = currentPrice ?? closePrice;
+
+  return ((latestPrice - openPrice) * multiplier * sideMultiplier) / 100;
+}
+
+function calcOrderGroupValues(
+  group: OrderGroup,
+  order: OrderWithProfit,
+  hasOrderBeenRemoved = false,
+): void {
+  let size = order.size;
+  let swap = order.swap;
+
+  if (hasOrderBeenRemoved) {
+    size = -size;
+    swap = -swap;
+  }
+
+  group.profit =
+    (group.profit * group.size + order.profit * size) / (group.size + size);
+
+  group.openPrice =
+    (group.openPrice * group.size + order.openPrice * size) /
+    (group.size + size);
+
+  group.size += size;
+  group.swap += swap;
+}
 
 export class OrdersDataSource extends DataSource<OrderGroup> {
   private readonly _apiService = inject(ApiService);
@@ -42,7 +86,9 @@ export class OrdersDataSource extends DataSource<OrderGroup> {
     this._updateDataSubject(this._data);
 
     if (group.items.length >= 1) {
-      this._showNotification(group.items);
+      this._notificationService.showNotification(
+        `Zamknięto zlecenie nr ${group.items.map(({ id }) => id).join(', ')}.`,
+      );
     }
 
     const remainingSymbols = Object.keys(this._data) as OrderSymbol[];
@@ -68,14 +114,16 @@ export class OrdersDataSource extends DataSource<OrderGroup> {
     const index = group.items.findIndex(({ id }) => id === order.id);
 
     group.items.splice(index, 1);
-    this._showNotification([order]);
+    this._notificationService.showNotification(
+      `Zamknięto zlecenie nr ${order.id}.`,
+    );
 
     if (group.items.length <= 0) {
       this.closeOrderGroup(event, group);
       return;
     }
 
-    this._calcOrderGroupValues(group, order, true);
+    calcOrderGroupValues(group, order, true);
     this._updateDataSubject(this._data);
     tableRef.renderRows();
   }
@@ -94,7 +142,7 @@ export class OrdersDataSource extends DataSource<OrderGroup> {
                   size: 0,
                   openPrice: 0,
                   swap: 0,
-                  profit: OrderProfitState.Loading,
+                  profit: 0,
                   items: [],
                 };
               }
@@ -102,10 +150,10 @@ export class OrdersDataSource extends DataSource<OrderGroup> {
               const group = acc[order.symbol];
               const item: OrderWithProfit = {
                 ...order,
-                profit: OrderProfitState.Loading,
+                profit: getOrderProfit(order),
               };
 
-              this._calcOrderGroupValues(group, item);
+              calcOrderGroupValues(group, item);
 
               group.items.push(item);
 
@@ -123,9 +171,8 @@ export class OrdersDataSource extends DataSource<OrderGroup> {
           this._startUpdatingProfitValues();
         },
         error: () => {
-          this._notificationService.showNotification(
+          this._notificationService.showErrorNotification(
             'Nie udało się pobrać danych, spróbuj ponownie później.',
-            true,
           );
         },
       });
@@ -145,7 +192,7 @@ export class OrdersDataSource extends DataSource<OrderGroup> {
             let groupProfitNominator = 0;
 
             group.items.forEach((item) => {
-              item.profit = this._getOrderProfit(item, currentPrice);
+              item.profit = getOrderProfit(item, currentPrice);
               groupProfitNominator += item.size * item.profit;
             });
 
@@ -155,86 +202,15 @@ export class OrdersDataSource extends DataSource<OrderGroup> {
           this._updateDataSubject(this._data);
         },
         error: () => {
-          this.disconnect();
-
-          if (!this._data) return;
-
-          const setProfitError = (item: OrderGroup | OrderWithProfit) => {
-            if (typeof item.profit !== 'number') {
-              item.profit = OrderProfitState.Error;
-            }
-          };
-
-          Object.values(this._data).forEach((group) => {
-            setProfitError(group);
-
-            group.items.forEach((item) => {
-              setProfitError(item);
-            });
-          });
-
-          this._updateDataSubject(this._data);
+          this._notificationService.showErrorNotification(
+            'Nie udało się pobrać aktualnych danych. Wyświetlane wartości mogą być nieaktualne.',
+          );
         },
       }),
     );
   }
 
-  private _getOrderProfit(
-    { symbol, side, openPrice }: Order,
-    currentPrice: number,
-  ): number {
-    const exponent = (() => {
-      switch (symbol) {
-        case OrderSymbol.BTCUSD:
-          return 2;
-        case OrderSymbol.ETHUSD:
-          return 3;
-        case OrderSymbol['TTWO.US']:
-          return 1;
-        default:
-          throw new Error(`Unknown symbol: ${symbol}`);
-      }
-    })();
-
-    const multiplier = Math.pow(10, exponent);
-    const sideMultiplier = side === OrderSide.BUY ? 1 : -1;
-
-    return ((currentPrice - openPrice) * multiplier * sideMultiplier) / 100;
-  }
-
-  private _calcOrderGroupValues(
-    group: OrderGroup,
-    order: OrderWithProfit,
-    hasOrderBeenRemoved = false,
-  ): void {
-    let size = order.size;
-    let swap = order.swap;
-
-    if (hasOrderBeenRemoved) {
-      size = -size;
-      swap = -swap;
-    }
-
-    if (typeof group.profit === 'number' && typeof order.profit === 'number') {
-      group.profit =
-        (group.profit * group.size + order.profit * size) / (group.size + size);
-    }
-
-    group.openPrice =
-      (group.openPrice * group.size + order.openPrice * size) /
-      (group.size + size);
-
-    group.size += size;
-    group.swap += swap;
-  }
-
   private _updateDataSubject(newData: Record<OrderSymbol, OrderGroup>) {
     this._dataSubject.next(Object.values(newData));
-  }
-
-  private _showNotification(items: OrderWithProfit[]) {
-    this._notificationService.showNotification(
-      `Zamknięto zlecenie nr ${items.map(({ id }) => id).join(', ')}.`,
-    );
   }
 }

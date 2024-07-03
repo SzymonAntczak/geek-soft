@@ -2,7 +2,7 @@ import { Component } from '@angular/core';
 import { MatTableModule } from '@angular/material/table';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { CommonModule } from '@angular/common';
 import {
   animate,
   state,
@@ -13,8 +13,6 @@ import {
 import { ApiService } from './api/api.service';
 import type { Column, OrderGroup } from './orders.model';
 import { OrdersDataSource } from './orders-data-source';
-import { CommonModule } from '@angular/common';
-import { MatTooltipModule } from '@angular/material/tooltip';
 
 const dateTimeFormat = new Intl.DateTimeFormat('en-GB', {
   dateStyle: 'short',
@@ -30,14 +28,7 @@ function getRoundedValue(value: number, numberOfDecimals = 2): number {
 @Component({
   selector: 'app-orders',
   standalone: true,
-  imports: [
-    CommonModule,
-    MatTableModule,
-    MatButtonModule,
-    MatIconModule,
-    MatProgressSpinnerModule,
-    MatTooltipModule,
-  ],
+  imports: [CommonModule, MatTableModule, MatButtonModule, MatIconModule],
   providers: [ApiService],
   templateUrl: './orders.component.html',
   styleUrl: './orders.component.scss',
@@ -97,10 +88,9 @@ export class OrdersComponent {
     {
       columnDef: 'profit',
       header: 'Profit',
-      cell: ({ profit }) =>
-        typeof profit === 'number' ? `${getRoundedValue(profit, 5)}` : profit,
+      cell: ({ profit }) => `${getRoundedValue(profit, 5)}`,
       class: ({ profit }) => {
-        if (typeof profit !== 'number' || profit === 0) return '';
+        if (profit === 0) return '';
         if (profit > 0) return 'positive';
         return 'negative';
       },

@@ -17,10 +17,8 @@ $theme: mat.define-theme(
   @include mat.all-component-typographies($theme);
   @include mat.all-component-densities($theme);
 
-  @include mat.progress-spinner-color($theme);
   @include mat.snack-bar-color($theme);
   @include mat.button-color($theme);
-  @include mat.tooltip-color($theme);
 
   --color-background: rgb(233, 237, 241);
   --color-font: rgb(14, 15, 26);

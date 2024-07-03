@@ -1,12 +1,7 @@
 import { Order } from './api/api.model';
 
-export enum OrderProfitState {
-  Loading = 'LOADING',
-  Error = 'ERROR',
-}
-
 export interface OrderWithProfit extends Order {
-  profit: number | OrderProfitState;
+  profit: number;
 }
 
 export interface OrderGroup
