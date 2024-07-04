@@ -6,10 +6,10 @@
   <ng-container matColumnDef="expand">
     <mat-header-cell *matHeaderCellDef></mat-header-cell>
 
-    <mat-cell *matCellDef="let element">
-      <button mat-icon-button (click)="expandRow($event, element)">
+    <mat-cell *matCellDef="let orderGroup">
+      <button mat-icon-button (click)="expandRow($event, orderGroup)">
         <mat-icon>{{
-          expandedElements[element.symbol]
+          expandedRows[orderGroup.symbol]
             ? "keyboard_arrow_up"
             : "keyboard_arrow_down"
         }}</mat-icon>
@@ -23,11 +23,14 @@
         {{ column.header }}
       </mat-header-cell>
 
-      <mat-cell *matCellDef="let element" [ngClass]="column.class?.(element)">
-        {{ column.cell(element) }}
+      <mat-cell
+        *matCellDef="let orderGroup"
+        [ngClass]="column.class?.(orderGroup)"
+      >
+        {{ column.cell(orderGroup) }}
 
         @if (column.badge) {
-          <span class="badge">{{ column.badge(element) }}</span>
+          <span class="badge">{{ column.badge(orderGroup) }}</span>
         }
       </mat-cell>
     </ng-container>
@@ -36,10 +39,10 @@
   <ng-container matColumnDef="closePosition">
     <mat-header-cell *matHeaderCellDef>&nbsp;</mat-header-cell>
 
-    <mat-cell *matCellDef="let element">
+    <mat-cell *matCellDef="let orderGroup">
       <button
         mat-icon-button
-        (click)="dataSource.closeOrderGroup($event, element)"
+        (click)="dataSource.closeOrderGroup($event, orderGroup)"
       >
         <mat-icon>playlist_remove</mat-icon>
       </button>
@@ -49,57 +52,54 @@
   <!-- expanded -->
   <ng-container matColumnDef="expandedDetail">
     <mat-cell
-      *matCellDef="let element"
+      *matCellDef="let orderGroup"
       [attr.colspan]="displayedColumns.length"
     >
       <mat-table
         #expandedTable
-        [dataSource]="element.items"
+        [dataSource]="orderGroup.orders"
         [style.height]="0"
         [@detailExpand]="
-          expandedElements[element.symbol] ? 'expanded' : 'collapsed'
+          expandedRows[orderGroup.symbol] ? 'expanded' : 'collapsed'
         "
       >
         <ng-container matColumnDef="expand">
-          <mat-cell *matCellDef="let element"></mat-cell>
+          <mat-cell *matCellDef="let order"></mat-cell>
         </ng-container>
 
         @for (column of columns; track column) {
           <ng-container [matColumnDef]="column.columnDef">
-            <mat-cell
-              *matCellDef="let element"
-              [ngClass]="column.class?.(element)"
-            >
-              {{ column.cell(element) }}
+            <mat-cell *matCellDef="let order" [ngClass]="column.class?.(order)">
+              {{ column.cell(order) }}
             </mat-cell>
           </ng-container>
         }
 
         <ng-container matColumnDef="closePosition">
-          <mat-cell *matCellDef="let element">
+          <mat-cell *matCellDef="let order">
             <button
               mat-icon-button
-              (click)="dataSource.closeOrder($event, element, expandedTable)"
+              (click)="dataSource.closeOrder($event, order, expandedTable)"
             >
               <mat-icon>close</mat-icon>
             </button>
           </mat-cell>
         </ng-container>
 
-        <mat-row *matRowDef="let row; columns: displayedColumns"></mat-row>
+        <mat-row *matRowDef="let order; columns: displayedColumns"></mat-row>
       </mat-table>
     </mat-cell>
   </ng-container>
 
   <mat-header-row *matHeaderRowDef="displayedColumns"></mat-header-row>
   <mat-row
-    *matRowDef="let element; columns: displayedColumns"
+    *matRowDef="let order; columns: displayedColumns"
     class="group-row"
-    [class.expanded]="expandedElements[element.symbol]"
-    (click)="expandRow($event, element)"
+    [class.expanded]="expandedRows[order.symbol]"
+    (click)="expandRow($event, order)"
   ></mat-row>
   <mat-row
-    *matRowDef="let element; columns: ['expandedDetail']"
+    *matRowDef="let order; columns: ['expandedDetail']"
     [style.min-height]="'unset'"
   ></mat-row>
 </mat-table>

@@ -1,41 +1,42 @@
-import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { type Observable, map } from 'rxjs';
+import { HttpClient } from '@angular/common/http';
 import { webSocket } from 'rxjs/webSocket';
+
 import type {
-  CurrentPricesWS,
-  CurrentPricesWSMessage,
-  Order,
+  CurrentPricesDTO,
+  CurrentPricesDTOMessage,
+  OrderDTO,
 } from './api.model';
 
 @Injectable()
 export class ApiService {
   private readonly _http = inject(HttpClient);
-  private readonly _currentPricesWS = webSocket<
-    CurrentPricesWS | CurrentPricesWSMessage
+  private readonly _currentPrices = webSocket<
+    CurrentPricesDTO | CurrentPricesDTOMessage
   >('wss://webquotes.geeksoft.pl/websocket/quotes');
 
-  getOrders(): Observable<Order[]> {
+  get orders$(): Observable<OrderDTO[]> {
     return this._http
       .get<{
-        data: Order[];
+        data: OrderDTO[];
       }>('https://geeksoft.pl/assets/order-data.json')
       .pipe(map(({ data }) => data));
   }
 
-  watchCurrentPrices(): Observable<CurrentPricesWS> {
-    return this._currentPricesWS.asObservable() as Observable<CurrentPricesWS>;
+  get currentPrices$(): Observable<CurrentPricesDTO> {
+    return this._currentPrices.asObservable() as Observable<CurrentPricesDTO>;
   }
 
-  addSymbolsToWatchList(symbols: CurrentPricesWSMessage['d']): void {
-    this._currentPricesWS.next({
+  addSymbolsToWatchList(symbols: CurrentPricesDTOMessage['d']): void {
+    this._currentPrices.next({
       p: '/subscribe/addlist',
       d: symbols,
     });
   }
 
-  removeSymbolsFromWatchList(symbols: CurrentPricesWSMessage['d']): void {
-    this._currentPricesWS.next({
+  removeSymbolsFromWatchList(symbols: CurrentPricesDTOMessage['d']): void {
+    this._currentPrices.next({
       p: '/subscribe/removelist',
       d: symbols,
     });

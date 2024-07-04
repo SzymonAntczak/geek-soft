@@ -1,23 +1,24 @@
+import { type Observable, Subject, Subscription, map, take } from 'rxjs';
 import { DataSource } from '@angular/cdk/collections';
-import { inject } from '@angular/core';
 import { type MatTable } from '@angular/material/table';
-import { Subject, Subscription, take } from 'rxjs';
-import { type OrderGroup, type OrderWithProfit } from './orders.model';
+import { inject } from '@angular/core';
+
+import type { Order, OrderGroup } from './orders.model';
+import { type OrderDTO, OrderDTOSide, OrderDTOSymbol } from './api/api.model';
 import { ApiService } from './api/api.service';
-import { type Order, OrderSide, OrderSymbol } from './api/api.model';
 import { NotificationService } from '../core/notification.service';
 
 function getOrderProfit(
-  { symbol, side, openPrice, closePrice }: Order,
+  { symbol, side, openPrice, closePrice }: OrderDTO,
   currentPrice?: number,
 ): number {
-  const exponent = (() => {
+  const exponent = ((): number => {
     switch (symbol) {
-      case OrderSymbol.BTCUSD:
+      case OrderDTOSymbol.BTCUSD:
         return 2;
-      case OrderSymbol.ETHUSD:
+      case OrderDTOSymbol.ETHUSD:
         return 3;
-      case OrderSymbol['TTWO.US']:
+      case OrderDTOSymbol['TTWO.US']:
         return 1;
       default:
         throw new Error(`Unknown symbol: ${symbol}`);
@@ -25,7 +26,7 @@ function getOrderProfit(
   })();
 
   const multiplier = Math.pow(10, exponent);
-  const sideMultiplier = side === OrderSide.BUY ? 1 : -1;
+  const sideMultiplier = side === OrderDTOSide.BUY ? 1 : -1;
   const latestPrice = currentPrice ?? closePrice;
 
   return ((latestPrice - openPrice) * multiplier * sideMultiplier) / 100;
@@ -33,7 +34,7 @@ function getOrderProfit(
 
 function calcOrderGroupValues(
   group: OrderGroup,
-  order: OrderWithProfit,
+  order: Order,
   hasOrderBeenRemoved = false,
 ): void {
   let size = order.size;
@@ -58,40 +59,48 @@ function calcOrderGroupValues(
 export class OrdersDataSource extends DataSource<OrderGroup> {
   private readonly _apiService = inject(ApiService);
   private readonly _notificationService = inject(NotificationService);
-  private readonly _dataSubject = new Subject<OrderGroup[]>();
+  private readonly _dataSubject = new Subject<
+    Record<OrderDTOSymbol, OrderGroup>
+  >();
   private readonly _subscription = new Subscription();
 
-  private _data?: Record<OrderSymbol, OrderGroup>;
+  private _data?: Record<OrderDTOSymbol, OrderGroup>;
+
+  get data(): Record<OrderDTOSymbol, OrderGroup> {
+    if (!this._data) throw new Error('Data is not set');
+
+    return this._data;
+  }
 
   constructor() {
     super();
     this._setData();
   }
 
-  connect() {
-    return this._dataSubject.asObservable();
+  connect(): Observable<OrderGroup[]> {
+    return this._dataSubject
+      .asObservable()
+      .pipe(map((data) => Object.values(data)));
   }
 
-  disconnect() {
+  disconnect(): void {
     this._subscription.unsubscribe();
   }
 
   closeOrderGroup(event: MouseEvent, group: OrderGroup): void {
     event.stopPropagation();
 
-    if (!this._data) return;
+    delete this.data[group.symbol];
 
-    delete this._data[group.symbol];
+    this._dataSubject.next(this.data);
 
-    this._updateDataSubject(this._data);
-
-    if (group.items.length >= 1) {
+    if (group.orders.length >= 1) {
       this._notificationService.showNotification(
-        `Zamknięto zlecenie nr ${group.items.map(({ id }) => id).join(', ')}.`,
+        `Zamknięto zlecenie nr ${group.orders.map(({ id }) => id).join(', ')}.`,
       );
     }
 
-    const remainingSymbols = Object.keys(this._data) as OrderSymbol[];
+    const remainingSymbols = Object.keys(this.data) as OrderDTOSymbol[];
 
     if (remainingSymbols.length <= 0) {
       this.disconnect();
@@ -101,105 +110,97 @@ export class OrdersDataSource extends DataSource<OrderGroup> {
     this._apiService.removeSymbolsFromWatchList([group.symbol]);
   }
 
-  closeOrder(
-    event: MouseEvent,
-    order: OrderWithProfit,
-    tableRef: MatTable<OrderWithProfit>,
-  ): void {
+  closeOrder(event: MouseEvent, order: Order, tableRef: MatTable<Order>): void {
     event.stopPropagation();
 
-    if (!this._data) return;
+    const group = this.data[order.symbol];
+    const index = group.orders.findIndex(({ id }) => id === order.id);
 
-    const group = this._data[order.symbol];
-    const index = group.items.findIndex(({ id }) => id === order.id);
+    group.orders.splice(index, 1);
 
-    group.items.splice(index, 1);
     this._notificationService.showNotification(
       `Zamknięto zlecenie nr ${order.id}.`,
     );
 
-    if (group.items.length <= 0) {
+    if (group.orders.length <= 0) {
       this.closeOrderGroup(event, group);
       return;
     }
 
     calcOrderGroupValues(group, order, true);
-    this._updateDataSubject(this._data);
+    this._dataSubject.next(this.data);
     tableRef.renderRows();
   }
 
   private _setData(): void {
-    this._apiService
-      .getOrders()
-      .pipe(take(1))
-      .subscribe({
-        next: (orders) => {
-          this._data = orders.reduce(
-            (acc, order) => {
-              if (!acc[order.symbol]) {
-                acc[order.symbol] = {
-                  symbol: order.symbol,
-                  size: 0,
-                  openPrice: 0,
-                  swap: 0,
-                  profit: 0,
-                  items: [],
-                };
-              }
-
-              const group = acc[order.symbol];
-              const item: OrderWithProfit = {
-                ...order,
-                profit: getOrderProfit(order),
+    this._apiService.orders$.pipe(take(1)).subscribe({
+      next: (orders) => {
+        this._data = orders.reduce(
+          (acc, orderDTO) => {
+            if (!acc[orderDTO.symbol]) {
+              acc[orderDTO.symbol] = {
+                symbol: orderDTO.symbol,
+                size: 0,
+                openPrice: 0,
+                swap: 0,
+                profit: 0,
+                orders: [],
               };
+            }
 
-              calcOrderGroupValues(group, item);
+            const group = acc[orderDTO.symbol];
+            const order: Order = {
+              ...orderDTO,
+              profit: getOrderProfit(orderDTO),
+            };
 
-              group.items.push(item);
+            calcOrderGroupValues(group, order);
 
-              return acc;
-            },
-            {} as Record<OrderSymbol, OrderGroup>,
-          );
+            group.orders.push(order);
 
-          this._updateDataSubject(this._data);
+            return acc;
+          },
+          {} as Record<OrderDTOSymbol, OrderGroup>,
+        );
 
-          this._apiService.addSymbolsToWatchList(
-            Object.keys(this._data) as OrderSymbol[],
-          );
+        this._dataSubject.next(this.data);
 
-          this._startUpdatingProfitValues();
-        },
-        error: () => {
-          this._notificationService.showErrorNotification(
-            'Nie udało się pobrać danych, spróbuj ponownie później.',
-          );
-        },
-      });
+        this._apiService.addSymbolsToWatchList(
+          Object.keys(this.data) as OrderDTOSymbol[],
+        );
+
+        this._startUpdatingProfitValues();
+      },
+      error: () => {
+        this._notificationService.showErrorNotification(
+          'Nie udało się pobrać danych, spróbuj ponownie później.',
+        );
+      },
+    });
   }
 
   private _startUpdatingProfitValues(): void {
     this._subscription.add(
-      this._apiService.watchCurrentPrices().subscribe({
+      this._apiService.currentPrices$.subscribe({
         next: (data) => {
-          if (data.p !== '/quotes/subscribed' || !this._data) return;
+          if (data.p !== '/quotes/subscribed') return;
 
           data.d.forEach(({ s: symbol, b: currentPrice }) => {
-            const group = this._data?.[symbol];
+            const group = this.data[symbol];
 
             if (!group) return;
 
             let groupProfitNominator = 0;
 
-            group.items.forEach((item) => {
-              item.profit = getOrderProfit(item, currentPrice);
-              groupProfitNominator += item.size * item.profit;
+            group.orders.forEach((order) => {
+              order.profit = getOrderProfit(order, currentPrice);
+              groupProfitNominator += order.size * order.profit;
             });
 
             group.profit = groupProfitNominator / group.size;
           });
 
-          this._updateDataSubject(this._data);
+          this._dataSubject.next(this.data);
         },
         error: () => {
           this._notificationService.showErrorNotification(
@@ -208,9 +209,5 @@ export class OrdersDataSource extends DataSource<OrderGroup> {
         },
       }),
     );
-  }
-
-  private _updateDataSubject(newData: Record<OrderSymbol, OrderGroup>) {
-    this._dataSubject.next(Object.values(newData));
   }
 }

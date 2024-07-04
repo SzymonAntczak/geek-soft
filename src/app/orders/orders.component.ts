@@ -1,8 +1,3 @@
-import { Component } from '@angular/core';
-import { MatTableModule } from '@angular/material/table';
-import { MatButtonModule } from '@angular/material/button';
-import { MatIconModule } from '@angular/material/icon';
-import { CommonModule } from '@angular/common';
 import {
   animate,
   state,
@@ -10,8 +5,14 @@ import {
   transition,
   trigger,
 } from '@angular/animations';
-import { ApiService } from './api/api.service';
+import { CommonModule } from '@angular/common';
+import { Component } from '@angular/core';
+import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
+import { MatTableModule } from '@angular/material/table';
+
 import type { Column, OrderGroup } from './orders.model';
+import { ApiService } from './api/api.service';
 import { OrdersDataSource } from './orders-data-source';
 
 const dateTimeFormat = new Intl.DateTimeFormat('en-GB', {
@@ -49,8 +50,9 @@ export class OrdersComponent {
     {
       columnDef: 'symbol',
       header: 'Symbol',
-      cell: (element) => ('items' in element ? `${element.symbol}` : ''),
-      badge: (element) => ('items' in element ? `${element.items.length}` : ''),
+      cell: (element) => ('orders' in element ? `${element.symbol}` : ''),
+      badge: (element) =>
+        'orders' in element ? `${element.orders.length}` : '',
     },
     {
       columnDef: 'orderId',
@@ -89,7 +91,7 @@ export class OrdersComponent {
       columnDef: 'profit',
       header: 'Profit',
       cell: ({ profit }) => `${getRoundedValue(profit, 5)}`,
-      class: ({ profit }) => {
+      class: ({ profit }): string => {
         if (profit === 0) return '';
         if (profit > 0) return 'positive';
         return 'negative';
@@ -103,11 +105,11 @@ export class OrdersComponent {
     'closePosition',
   ];
 
-  readonly expandedElements: Record<string, boolean> = {};
+  readonly expandedRows: Record<string, boolean> = {};
 
   expandRow(event: MouseEvent, { symbol }: OrderGroup): void {
     event.stopPropagation();
 
-    this.expandedElements[symbol] = !this.expandedElements[symbol];
+    this.expandedRows[symbol] = !this.expandedRows[symbol];
   }
 }

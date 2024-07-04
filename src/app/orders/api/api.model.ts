@@ -1,7 +1,7 @@
-export interface Order {
+export interface OrderDTO {
   id: number;
-  symbol: OrderSymbol;
-  side: OrderSide;
+  symbol: OrderDTOSymbol;
+  side: OrderDTOSide;
   size: number;
   openTime: number;
   openPrice: number;
@@ -9,22 +9,22 @@ export interface Order {
   closePrice: number;
 }
 
-export enum OrderSymbol {
+export enum OrderDTOSymbol {
   BTCUSD = 'BTCUSD',
   ETHUSD = 'ETHUSD',
   'TTWO.US' = 'TTWO.US',
 }
 
-export enum OrderSide {
+export enum OrderDTOSide {
   BUY = 'BUY',
   SELL = 'SELL',
 }
 
-export type CurrentPricesWS =
+export type CurrentPricesDTO =
   | {
       p: '/quotes/subscribed';
       d: {
-        s: OrderSymbol;
+        s: OrderDTOSymbol;
         b: number;
         a: number;
         t: number;
@@ -35,7 +35,7 @@ export type CurrentPricesWS =
       i: number;
     };
 
-export interface CurrentPricesWSMessage {
+export interface CurrentPricesDTOMessage {
   p: '/subscribe/addlist' | '/subscribe/removelist';
-  d: OrderSymbol[];
+  d: OrderDTOSymbol[];
 }

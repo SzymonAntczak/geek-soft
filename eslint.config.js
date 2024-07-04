@@ -30,6 +30,14 @@ module.exports = tseslint.config(
           style: "kebab-case",
         },
       ],
+      "@typescript-eslint/consistent-type-imports": "error",
+      "@typescript-eslint/explicit-function-return-type": "error",
+      "sort-imports": [
+        "warn",
+        {
+          allowSeparatedGroups: true,
+        },
+      ],
     },
   },
   {

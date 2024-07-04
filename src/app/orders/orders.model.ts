@@ -1,21 +1,18 @@
-import { Order } from './api/api.model';
+import type { OrderDTO } from './api/api.model';
 
-export interface OrderWithProfit extends Order {
+export interface Order extends OrderDTO {
   profit: number;
 }
 
 export interface OrderGroup
-  extends Pick<
-    OrderWithProfit,
-    'symbol' | 'size' | 'openPrice' | 'swap' | 'profit'
-  > {
-  items: OrderWithProfit[];
+  extends Pick<Order, 'symbol' | 'size' | 'openPrice' | 'swap' | 'profit'> {
+  orders: Order[];
 }
 
 export interface Column {
   columnDef: string;
   header: string;
-  cell: (element: OrderGroup | OrderWithProfit) => string;
-  badge?: (element: OrderGroup | OrderWithProfit) => string;
-  class?: (element: OrderGroup | OrderWithProfit) => string;
+  cell: (element: OrderGroup | Order) => string;
+  badge?: (element: OrderGroup | Order) => string;
+  class?: (element: OrderGroup | Order) => string;
 }
