@@ -12,7 +12,7 @@ function getOrderProfit(
   { symbol, side, openPrice, closePrice }: OrderDTO,
   currentPrice?: number,
 ): number {
-  const exponent = ((): number => {
+  const exponent = ((): 1 | 2 | 3 => {
     switch (symbol) {
       case OrderDTOSymbol.BTCUSD:
         return 2;

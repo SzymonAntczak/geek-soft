@@ -6,6 +6,5 @@ import { OrdersComponent } from './orders/orders.component';
   standalone: true,
   imports: [OrdersComponent],
   templateUrl: './app.component.html',
-  styleUrl: './app.component.scss',
 })
 export class AppComponent {}

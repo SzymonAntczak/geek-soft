@@ -91,7 +91,7 @@ export class OrdersComponent {
       columnDef: 'profit',
       header: 'Profit',
       cell: ({ profit }) => `${getRoundedValue(profit, 5)}`,
-      class: ({ profit }): string => {
+      class: ({ profit }): '' | 'positive' | 'negative' => {
         if (profit === 0) return '';
         if (profit > 0) return 'positive';
         return 'negative';
