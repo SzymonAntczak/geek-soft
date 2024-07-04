@@ -7,7 +7,11 @@
     <mat-header-cell *matHeaderCellDef></mat-header-cell>
 
     <mat-cell *matCellDef="let orderGroup">
-      <button mat-icon-button (click)="expandRow($event, orderGroup)">
+      <button
+        mat-icon-button
+        aria-label="Rozwiń wiersz"
+        (click)="expandRow($event, orderGroup)"
+      >
         <mat-icon>{{
           expandedRows[orderGroup.symbol]
             ? "keyboard_arrow_up"
@@ -42,6 +46,7 @@
     <mat-cell *matCellDef="let orderGroup">
       <button
         mat-icon-button
+        aria-label="Zamknij grupę pozycji"
         (click)="dataSource.closeOrderGroup($event, orderGroup)"
       >
         <mat-icon>playlist_remove</mat-icon>
@@ -80,6 +85,7 @@
             <button
               mat-icon-button
               (click)="dataSource.closeOrder($event, order, expandedTable)"
+              aria-label="Zamknij pozycję"
             >
               <mat-icon>close</mat-icon>
             </button>
