@@ -8,7 +8,7 @@ import { type OrderDTO, OrderDTOSide, OrderDTOSymbol } from './api/api.model';
 import { ApiService } from './api/api.service';
 import { NotificationService } from '../core/notification.service';
 
-function getOrderProfit(
+export function getOrderProfit(
   { symbol, side, openPrice, closePrice }: OrderDTO,
   currentPrice?: number,
 ): number {
@@ -32,17 +32,23 @@ function getOrderProfit(
   return ((latestPrice - openPrice) * multiplier * sideMultiplier) / 100;
 }
 
-function calcOrderGroupValues(
+export function recalculateOrderGroup(
   group: OrderGroup,
   order: Order,
-  hasOrderBeenRemoved = false,
+  onRemoveOrder = false,
 ): void {
   let size = order.size;
   let swap = order.swap;
 
-  if (hasOrderBeenRemoved) {
+  if (onRemoveOrder) {
+    const index = group.orders.findIndex(({ id }) => id === order.id);
+
+    group.orders.splice(index, 1);
+
     size = -size;
     swap = -swap;
+  } else {
+    group.orders.push(order);
   }
 
   group.profit =
@@ -114,9 +120,8 @@ export class OrdersDataSource extends DataSource<OrderGroup> {
     event.stopPropagation();
 
     const group = this.data[order.symbol];
-    const index = group.orders.findIndex(({ id }) => id === order.id);
 
-    group.orders.splice(index, 1);
+    recalculateOrderGroup(group, order, true);
 
     this._notificationService.showNotification(
       `Zamknięto zlecenie nr ${order.id}.`,
@@ -127,61 +132,61 @@ export class OrdersDataSource extends DataSource<OrderGroup> {
       return;
     }
 
-    calcOrderGroupValues(group, order, true);
     this._dataSubject.next(this.data);
     tableRef.renderRows();
   }
 
   private _setData(): void {
-    this._apiService.orders$.pipe(take(1)).subscribe({
-      next: (orders) => {
-        this._data = orders.reduce(
-          (acc, orderDTO) => {
-            if (!acc[orderDTO.symbol]) {
-              acc[orderDTO.symbol] = {
-                symbol: orderDTO.symbol,
-                size: 0,
-                openPrice: 0,
-                swap: 0,
-                profit: 0,
-                orders: [],
+    this._apiService
+      .getOrders()
+      .pipe(take(1))
+      .subscribe({
+        next: (orders) => {
+          this._data = orders.reduce(
+            (acc, orderDTO) => {
+              if (!acc[orderDTO.symbol]) {
+                acc[orderDTO.symbol] = {
+                  symbol: orderDTO.symbol,
+                  size: 0,
+                  openPrice: 0,
+                  swap: 0,
+                  profit: 0,
+                  orders: [],
+                };
+              }
+
+              const group = acc[orderDTO.symbol];
+              const order: Order = {
+                ...orderDTO,
+                profit: getOrderProfit(orderDTO),
               };
-            }
 
-            const group = acc[orderDTO.symbol];
-            const order: Order = {
-              ...orderDTO,
-              profit: getOrderProfit(orderDTO),
-            };
+              recalculateOrderGroup(group, order);
 
-            calcOrderGroupValues(group, order);
+              return acc;
+            },
+            {} as Record<OrderDTOSymbol, OrderGroup>,
+          );
 
-            group.orders.push(order);
+          this._dataSubject.next(this.data);
 
-            return acc;
-          },
-          {} as Record<OrderDTOSymbol, OrderGroup>,
-        );
+          this._apiService.addSymbolsToWatchList(
+            Object.keys(this.data) as OrderDTOSymbol[],
+          );
 
-        this._dataSubject.next(this.data);
-
-        this._apiService.addSymbolsToWatchList(
-          Object.keys(this.data) as OrderDTOSymbol[],
-        );
-
-        this._startUpdatingProfitValues();
-      },
-      error: () => {
-        this._notificationService.showErrorNotification(
-          'Nie udało się pobrać danych, spróbuj ponownie później.',
-        );
-      },
-    });
+          this._startUpdatingProfitValues();
+        },
+        error: () => {
+          this._notificationService.showErrorNotification(
+            'Nie udało się pobrać danych, spróbuj ponownie później.',
+          );
+        },
+      });
   }
 
   private _startUpdatingProfitValues(): void {
     this._subscription.add(
-      this._apiService.currentPrices$.subscribe({
+      this._apiService.watchCurrentPrices().subscribe({
         next: (data) => {
           if (data.p !== '/quotes/subscribed') return;
 

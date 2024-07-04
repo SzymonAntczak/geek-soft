@@ -26,8 +26,6 @@ export type CurrentPricesDTO =
       d: {
         s: OrderDTOSymbol;
         b: number;
-        a: number;
-        t: number;
       }[];
     }
   | {

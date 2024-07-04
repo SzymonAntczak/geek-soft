@@ -16,7 +16,7 @@ export class ApiService {
     CurrentPricesDTO | CurrentPricesDTOMessage
   >('wss://webquotes.geeksoft.pl/websocket/quotes');
 
-  get orders$(): Observable<OrderDTO[]> {
+  getOrders(): Observable<OrderDTO[]> {
     return this._http
       .get<{
         data: OrderDTO[];
@@ -24,7 +24,7 @@ export class ApiService {
       .pipe(map(({ data }) => data));
   }
 
-  get currentPrices$(): Observable<CurrentPricesDTO> {
+  watchCurrentPrices(): Observable<CurrentPricesDTO> {
     return this._currentPrices.asObservable() as Observable<CurrentPricesDTO>;
   }
 
