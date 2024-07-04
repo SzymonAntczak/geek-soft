@@ -1,4 +1,11 @@
-import { type Observable, Subject, Subscription, map, take } from 'rxjs';
+import {
+  BehaviorSubject,
+  type Observable,
+  Subscription,
+  map,
+  take,
+  withLatestFrom,
+} from 'rxjs';
 import { DataSource } from '@angular/cdk/collections';
 import { type MatTable } from '@angular/material/table';
 import { inject } from '@angular/core';
@@ -65,17 +72,13 @@ export function recalculateOrderGroup(
 export class OrdersDataSource extends DataSource<OrderGroup> {
   private readonly _apiService = inject(ApiService);
   private readonly _notificationService = inject(NotificationService);
-  private readonly _dataSubject = new Subject<
-    Record<OrderDTOSymbol, OrderGroup>
-  >();
   private readonly _subscription = new Subscription();
+  private readonly _data = new BehaviorSubject<
+    Partial<Record<OrderDTOSymbol, OrderGroup>>
+  >({});
 
-  private _data?: Record<OrderDTOSymbol, OrderGroup>;
-
-  get data(): Record<OrderDTOSymbol, OrderGroup> {
-    if (!this._data) throw new Error('Data is not set');
-
-    return this._data;
+  get data(): Partial<Record<OrderDTOSymbol, OrderGroup>> {
+    return this._data.getValue();
   }
 
   constructor() {
@@ -84,9 +87,7 @@ export class OrdersDataSource extends DataSource<OrderGroup> {
   }
 
   connect(): Observable<OrderGroup[]> {
-    return this._dataSubject
-      .asObservable()
-      .pipe(map((data) => Object.values(data)));
+    return this._data.asObservable().pipe(map((data) => Object.values(data)));
   }
 
   disconnect(): void {
@@ -98,7 +99,7 @@ export class OrdersDataSource extends DataSource<OrderGroup> {
 
     delete this.data[group.symbol];
 
-    this._dataSubject.next(this.data);
+    this._data.next(this.data);
 
     if (group.orders.length >= 1) {
       this._notificationService.showNotification(
@@ -121,6 +122,8 @@ export class OrdersDataSource extends DataSource<OrderGroup> {
 
     const group = this.data[order.symbol];
 
+    if (!group) return;
+
     recalculateOrderGroup(group, order, true);
 
     this._notificationService.showNotification(
@@ -132,7 +135,7 @@ export class OrdersDataSource extends DataSource<OrderGroup> {
       return;
     }
 
-    this._dataSubject.next(this.data);
+    this._data.next(this.data);
     tableRef.renderRows();
   }
 
@@ -142,7 +145,7 @@ export class OrdersDataSource extends DataSource<OrderGroup> {
       .pipe(take(1))
       .subscribe({
         next: (orders) => {
-          this._data = orders.reduce(
+          const data = orders.reduce(
             (acc, orderDTO) => {
               if (!acc[orderDTO.symbol]) {
                 acc[orderDTO.symbol] = {
@@ -168,10 +171,10 @@ export class OrdersDataSource extends DataSource<OrderGroup> {
             {} as Record<OrderDTOSymbol, OrderGroup>,
           );
 
-          this._dataSubject.next(this.data);
+          this._data.next(data);
 
           this._apiService.addSymbolsToWatchList(
-            Object.keys(this.data) as OrderDTOSymbol[],
+            Object.keys(data) as OrderDTOSymbol[],
           );
 
           this._startUpdatingProfitValues();
@@ -186,33 +189,36 @@ export class OrdersDataSource extends DataSource<OrderGroup> {
 
   private _startUpdatingProfitValues(): void {
     this._subscription.add(
-      this._apiService.watchCurrentPrices().subscribe({
-        next: (data) => {
-          if (data.p !== '/quotes/subscribed') return;
+      this._apiService
+        .watchCurrentPrices()
+        .pipe(withLatestFrom(this._data.asObservable()))
+        .subscribe({
+          next: ([currentPrices, data]) => {
+            if (currentPrices.p !== '/quotes/subscribed') return;
 
-          data.d.forEach(({ s: symbol, b: currentPrice }) => {
-            const group = this.data[symbol];
+            currentPrices.d.forEach(({ s: symbol, b: currentPrice }) => {
+              const group = data[symbol];
 
-            if (!group) return;
+              if (!group) return;
 
-            let groupProfitNominator = 0;
+              let groupProfitNominator = 0;
 
-            group.orders.forEach((order) => {
-              order.profit = getOrderProfit(order, currentPrice);
-              groupProfitNominator += order.size * order.profit;
+              group.orders.forEach((order) => {
+                order.profit = getOrderProfit(order, currentPrice);
+                groupProfitNominator += order.size * order.profit;
+              });
+
+              group.profit = groupProfitNominator / group.size;
             });
 
-            group.profit = groupProfitNominator / group.size;
-          });
-
-          this._dataSubject.next(this.data);
-        },
-        error: () => {
-          this._notificationService.showErrorNotification(
-            'Nie udało się pobrać aktualnych danych. Wyświetlane wartości mogą być nieaktualne.',
-          );
-        },
-      }),
+            this._data.next(data);
+          },
+          error: () => {
+            this._notificationService.showErrorNotification(
+              'Nie udało się pobrać aktualnych danych. Wyświetlane wartości mogą być nieaktualne.',
+            );
+          },
+        }),
     );
   }
 }
